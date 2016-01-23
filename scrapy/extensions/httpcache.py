@@ -520,7 +520,7 @@ class LeveldbDeltaCacheStorage(object):
         del self.db
 
     # Instead of requests we take a dict of the sources and a dict of the deltas
-    def retrieve_response(self, spider, sources, deltas):
+    def retrieve_response(self, spider, sources, pages):
         data = self._read_data(spider, request)
         if data is None:
             return  # not cached
@@ -532,22 +532,18 @@ class LeveldbDeltaCacheStorage(object):
         response = respcls(url=url, headers=headers, status=status, body=body)
         return response
 
-    def store_response(self, spider, sources, deltas):
-        key = self._request_key(deltas)
-        # Read in data here
+    def store_response(self, spider, sources, pages):
+        key = self._request_key(pages)
         data = {
-            'status': response.status,
-            'url': response.url,
-            'headers': dict(response.headers),
-            'body': response.body,
+            # Read in data here
         }
         batch = self._leveldb.WriteBatch()
         batch.Put('%s_data' % key, pickle.dumps(data, protocol=2))
         batch.Put('%s_time' % key, str(time()))
         self.db.Write(batch)
 
-    def _read_data(self, spider, request):
-        key = self._request_key(request)
+    def _read_data(self, sources, pages):
+        key = self._request_key(pages)
         try:
             ts = self.db.Get('%s_time' % key)
         except KeyError:
