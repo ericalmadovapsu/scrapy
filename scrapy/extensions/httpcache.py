@@ -459,6 +459,48 @@ class DeltaLeveldbCacheStorage(object):
         #       - encode the response with the new source
         #       - write the new _data, _time, and _length to db
         print('Chopper Dave says uh-oh, shouldn\'t hit this yet!\n')
+        for target_key in target_set:
+            # Get delta data and length from the db
+            try:
+                ts = self.db.Get(target_key + b'_time')
+            except KeyError:
+                return  # not found or invalid entry
+            if 0 < self.expiration_secs < time() - float(ts):
+                return  # expired
+            try:
+                data = self.db.Get(target_key + b'_data')
+            except KeyError:
+                return  # invalid entry
+            try:
+                length = int(self.db.Get(target_key + b'_length'))
+            except KeyError:
+                return  # invalid entry
+            except ValueError:
+                return  # invalid entry
+            # Decode response with old source
+            old_serial_response = self._decode_response(data, old_source, length)
+            # Reconstruct original response
+            data = self._deserialize(old_serial_response)
+            url = data['url']
+            status = data['status']
+            headers = Headers(data['headers'])
+            body = data['body']
+            respcls = responsetypes.from_args(headers=headers, url=url)
+            response = respcls(url=url, headers=headers, status=status, body=body)
+            # Serialize response so it can be encoded
+            #target_response = self._serialize(request, response)
+            dict_response = OrderedDict()
+            for k in self.response_to_cache:
+                dict_response[k] = getattr(response, k)
+            target_response = pickle.dumps(dict_response, 2)
+            # Encode old response with new source
+            redelta, new_length = self._encode_response(target_response, new_source)
+            # Write new targets to db
+            batch = self._leveldb.WriteBatch()
+            batch.Put(target_key + b'_data', redelta)
+            batch.Put(target_key + b'_time', to_bytes(str(time())))
+            batch.Put(target_key + b'_length', to_bytes(str(new_length)))
+            self.db.Write(batch)
 
     def _encode_response(self, target, source):
         buf_size = max(len(target), len(source))
