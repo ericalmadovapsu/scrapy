@@ -450,11 +450,9 @@ class DeltaLeveldbCacheStorage(object):
     def _recompute_deltas(self, new_source, old_source, target_set):
         for target_key in target_set:
             # Get old response from the db
-            data = self._read_data(key_to_use=target_key, ignore_time=True)
+            old_response = self._read_data(key_to_use=target_key, ignore_time=True)
             # Decode serialized delta response with old source
-            old_serial_response = self._decode_response(data, old_source)
-            # Deserialze the delta response
-            data = self._deserialize(old_serial_response)
+            target_response = self._decode_response(old_response, old_source)
             # Encode old response with new source
             redelta = self._encode_response(target_response, new_source)
             # Write new target responses to db
