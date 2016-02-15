@@ -454,10 +454,10 @@ class DeltaLeveldbCacheStorage(object):
             # Decode serialized delta response with old source
             target_response = self._decode_response(old_response, old_source)
             # Encode old response with new source
-            redelta = self._encode_response(target_response, new_source)
+            new_delta = self._encode_response(target_response, new_source)
             # Write new target responses to db
             batch = self._leveldb.WriteBatch()
-            batch.Put(target_key + b'_data', redelta)
+            batch.Put(target_key + b'_data', new_delta)
             self.db.Write(batch)
 
     def _reconstruct_response(self, data):
